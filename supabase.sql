@@ -12,6 +12,10 @@ create table if not exists public.checklist_items (
   latitude double precision check (latitude is null or latitude between -90 and 90),
   longitude double precision check (longitude is null or longitude between -180 and 180),
   is_completed boolean not null default false,
+  is_favorite boolean not null default false,
+  priority smallint not null default 1 check (priority between 1 and 3),
+  external_url text,
+  planned_date date,
   created_by text not null check (created_by in ('neverlordd', 'puk_privet')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -33,12 +37,19 @@ alter table public.checklist_items
   add column if not exists latitude double precision,
   add column if not exists longitude double precision,
   add column if not exists is_completed boolean not null default false,
+  add column if not exists is_favorite boolean not null default false,
+  add column if not exists priority smallint not null default 1,
+  add column if not exists external_url text,
+  add column if not exists planned_date date,
   add column if not exists created_by text not null default 'neverlordd',
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
 create index if not exists checklist_items_country_category_idx
   on public.checklist_items (country, category, created_at);
+
+create index if not exists checklist_items_country_status_idx
+  on public.checklist_items (country, is_completed, is_favorite, priority, planned_date);
 
 -- Закрытая история изменений: позволяет восстановить случайно изменённые
 -- или удалённые пункты. Клиентское приложение доступа к ней не имеет.
