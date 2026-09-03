@@ -40,6 +40,37 @@ alter table public.checklist_items
 create index if not exists checklist_items_country_category_idx
   on public.checklist_items (country, category, created_at);
 
+-- Закрытая история изменений: позволяет восстановить случайно изменённые
+-- или удалённые пункты. Клиентское приложение доступа к ней не имеет.
+create table if not exists public.checklist_items_history (
+  history_id bigint generated always as identity primary key,
+  item_id uuid not null,
+  operation text not null check (operation in ('UPDATE', 'DELETE')),
+  snapshot jsonb not null,
+  archived_at timestamptz not null default now()
+);
+
+alter table public.checklist_items_history enable row level security;
+revoke all on public.checklist_items_history from anon, authenticated;
+
+create or replace function public.archive_checklist_item()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.checklist_items_history (item_id, operation, snapshot)
+  values (old.id, tg_op, to_jsonb(old));
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+drop trigger if exists checklist_items_archive_changes on public.checklist_items;
+create trigger checklist_items_archive_changes
+before update or delete on public.checklist_items
+for each row execute function public.archive_checklist_item();
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql

@@ -17,7 +17,9 @@ const SUPABASE_URL = 'https://grsiborhqvvxssjrxrsk.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_dEMmlwfgL0JE99kOVIgelg_0y0ZWtzW'
 const ALLOWED_USERS = new Set(['neverlordd', 'puk_privet'])
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: { params: { eventsPerSecond: 10 } },
+})
 
 const COUNTRIES = [
   { id: 'vietnam', name: 'Вьетнам', emoji: '🇻🇳' },
@@ -31,6 +33,43 @@ const EMPTY_FORM = {
   latitude: '',
   longitude: '',
   photo: null,
+}
+const CACHE_KEY = 'travel-checklist-cache-v1'
+
+function sortItems(items) {
+  return [...items].sort((a, b) => {
+    const byDate = String(a.created_at).localeCompare(String(b.created_at))
+    return byDate || String(a.id).localeCompare(String(b.id))
+  })
+}
+
+function upsertItem(items, nextItem) {
+  const currentItem = items.find((item) => item.id === nextItem.id)
+  if (currentItem?.updated_at && nextItem.updated_at && currentItem.updated_at > nextItem.updated_at) {
+    return items
+  }
+  const exists = Boolean(currentItem)
+  return sortItems(exists
+    ? items.map((item) => item.id === nextItem.id ? nextItem : item)
+    : [...items, nextItem])
+}
+
+function readCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]')
+    return Array.isArray(cached) ? cached : []
+  } catch {
+    return []
+  }
+}
+
+function readCountry() {
+  try {
+    const saved = localStorage.getItem('travel-checklist-country')
+    return COUNTRIES.some((country) => country.id === saved) ? saved : 'vietnam'
+  } catch {
+    return 'vietnam'
+  }
 }
 
 function getTelegramUser() {
@@ -69,9 +108,10 @@ export default function App() {
   const [telegramUser] = useState(getTelegramUser)
   const username = telegramUser?.username?.toLowerCase() || ''
   const hasAccess = ALLOWED_USERS.has(username)
-  const [country, setCountry] = useState('vietnam')
-  const [items, setItems] = useState([])
+  const [country, setCountry] = useState(readCountry)
+  const [items, setItems] = useState(readCache)
   const [loading, setLoading] = useState(true)
+  const [syncStatus, setSyncStatus] = useState('connecting')
   const [error, setError] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -86,9 +126,13 @@ export default function App() {
       .select('*')
       .order('created_at', { ascending: true })
 
-    if (queryError) setError(`Не удалось загрузить список: ${queryError.message}`)
+    if (queryError) {
+      setSyncStatus('offline')
+      setError(`Не удалось загрузить список: ${queryError.message}`)
+    }
     else {
-      setItems(data || [])
+      setItems(sortItems(data || []))
+      setSyncStatus('online')
       setError('')
     }
     setLoading(false)
@@ -96,21 +140,61 @@ export default function App() {
 
   useEffect(() => {
     if (!hasAccess) return undefined
-    loadItems(true)
+    void loadItems(true)
 
     const channel = supabase
       .channel('travel-checklist-live')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'checklist_items' },
-        () => loadItems(false),
+        (payload) => {
+          setSyncStatus('online')
+          setItems((current) => {
+            if (payload.eventType === 'DELETE') {
+              return current.filter((item) => item.id !== payload.old.id)
+            }
+            return upsertItem(current, payload.new)
+          })
+        },
       )
       .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') setError('Realtime временно недоступен. Обновите приложение.')
+        if (status === 'SUBSCRIBED') {
+          setSyncStatus('online')
+          void loadItems(false)
+        }
+        if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+          setSyncStatus('offline')
+        }
       })
 
-    return () => { supabase.removeChannel(channel) }
+    const refresh = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void loadItems(false)
+    }
+    const goOffline = () => setSyncStatus('offline')
+    window.addEventListener('online', refresh)
+    window.addEventListener('offline', goOffline)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    const fallbackRefresh = window.setInterval(refresh, 45000)
+
+    return () => {
+      window.clearInterval(fallbackRefresh)
+      window.removeEventListener('online', refresh)
+      window.removeEventListener('offline', goOffline)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+      supabase.removeChannel(channel)
+    }
   }, [hasAccess, loadItems])
+
+  useEffect(() => {
+    if (!hasAccess) return
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(items)) } catch { /* storage может быть отключён */ }
+  }, [hasAccess, items])
+
+  useEffect(() => {
+    try { localStorage.setItem('travel-checklist-country', country) } catch { /* storage может быть отключён */ }
+  }, [country])
 
   const countryItems = useMemo(
     () => items.filter((item) => item.country === country),
@@ -125,14 +209,19 @@ export default function App() {
     const nextValue = !item.is_completed
     setItems((current) => current.map((row) => row.id === item.id ? { ...row, is_completed: nextValue } : row))
 
-    const { error: updateError } = await supabase
+    const { data: savedItem, error: updateError } = await supabase
       .from('checklist_items')
       .update({ is_completed: nextValue })
       .eq('id', item.id)
+      .select()
+      .single()
 
     if (updateError) {
       setItems((current) => current.map((row) => row.id === item.id ? item : row))
       setError(`Не удалось обновить пункт: ${updateError.message}`)
+    } else {
+      setItems((current) => upsertItem(current, savedItem))
+      setSyncStatus('online')
     }
   }
 
@@ -140,14 +229,19 @@ export default function App() {
     if (!window.confirm(`Удалить «${item.title}»?`)) return
     haptic('medium')
 
-    const { error: deleteError } = await supabase.from('checklist_items').delete().eq('id', item.id)
-    if (deleteError) {
-      setError(`Не удалось удалить пункт: ${deleteError.message}`)
+    const { data: deletedRows, error: deleteError } = await supabase
+      .from('checklist_items')
+      .delete()
+      .eq('id', item.id)
+      .select('id')
+    if (deleteError || !deletedRows?.length) {
+      setError(`Не удалось удалить пункт: ${deleteError?.message || 'сервер не подтвердил удаление'}`)
       return
     }
 
     if (item.photo_path) await supabase.storage.from('photos').remove([item.photo_path])
     setItems((current) => current.filter((row) => row.id !== item.id))
+    setSyncStatus('online')
   }
 
   function openCreate(category = CATEGORIES[0]) {
@@ -188,7 +282,10 @@ export default function App() {
         <div className="rounded-3xl border border-white bg-white/90 p-4 shadow-soft backdrop-blur">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium text-muted">Готово {completed} из {countryItems.length}</span>
-            <span className="font-bold text-mint-700">{progress}%</span>
+            <span className="flex items-center gap-2 font-bold text-mint-700">
+              <span className={`h-2 w-2 rounded-full ${syncStatus === 'online' ? 'bg-mint-500' : syncStatus === 'connecting' ? 'animate-pulse bg-amber-400' : 'bg-red-400'}`} />
+              {progress}%
+            </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-mint-50">
             <div className="h-full rounded-full bg-mint-500 transition-all duration-500" style={{ width: `${progress}%` }} />
@@ -250,9 +347,8 @@ export default function App() {
           initialCategory={createCategory}
           onClose={() => setModalOpen(false)}
           onSaved={(saved) => {
-            setItems((current) => editingItem
-              ? current.map((row) => row.id === saved.id ? saved : row)
-              : [...current, saved])
+            setItems((current) => upsertItem(current, saved))
+            setSyncStatus('online')
             setModalOpen(false)
             haptic('medium')
           }}
