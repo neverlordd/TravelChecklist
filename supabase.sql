@@ -21,6 +21,22 @@ create table if not exists public.checklist_items (
   )
 );
 
+-- Миграция для уже существующей таблицы. CREATE TABLE IF NOT EXISTS
+-- не добавляет новые столбцы, поэтому каждый столбец проверяется отдельно.
+alter table public.checklist_items
+  add column if not exists country text not null default 'vietnam',
+  add column if not exists category text not null default 'Заведения',
+  add column if not exists title text not null default 'Без названия',
+  add column if not exists description text not null default '',
+  add column if not exists photo_url text,
+  add column if not exists photo_path text,
+  add column if not exists latitude double precision,
+  add column if not exists longitude double precision,
+  add column if not exists is_completed boolean not null default false,
+  add column if not exists created_by text not null default 'neverlordd',
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
 create index if not exists checklist_items_country_category_idx
   on public.checklist_items (country, category, created_at);
 
