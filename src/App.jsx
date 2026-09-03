@@ -80,23 +80,48 @@ async function optimizePhoto(file) {
   } catch { return file }
 }
 
+function titleFromMapsUrl(url) {
+  try {
+    const match = new URL(url).pathname.match(/\/place\/([^/@]+)/i)
+    return match?.[1] ? decodeURIComponent(match[1].replace(/\+/g, ' ')).trim() : ''
+  } catch { return '' }
+}
+
 async function getLinkPreview(url) {
   const normalized = normalizeUrl(url)
   if (!normalized) return null
   if (/\.(avif|gif|jpe?g|png|webp)(?:\?.*)?$/i.test(normalized)) return { image_url: normalized, final_url: normalized }
-  const host = new URL(normalized).hostname.toLowerCase()
-  const isGoogleMaps = host === 'maps.app.goo.gl' || host === 'goo.gl' || host === 'google.com' || host.endsWith('.google.com') || host.endsWith('.google.com.vn') || host.endsWith('.google.co.th')
-  if (isGoogleMaps) {
-    const { data, error } = await supabase.functions.invoke('link-preview', { body: { url: normalized } })
-    if (!error && data?.image_url) return data
-  }
   try {
-    const response = await fetch(normalized)
-    const html = await response.text()
-    const documentNode = new DOMParser().parseFromString(html, 'text/html')
-    const image = documentNode.querySelector('meta[property="og:image"], meta[name="twitter:image"]')?.content
-    return image ? { image_url: new URL(image, response.url).href, final_url: response.url } : null
-  } catch { return null }
+    const endpoint = new URL('https://api.microlink.io')
+    endpoint.searchParams.set('url', normalized)
+    endpoint.searchParams.set('audio', 'false')
+    endpoint.searchParams.set('video', 'false')
+    endpoint.searchParams.set('iframe', 'false')
+    const response = await fetch(endpoint, { signal: AbortSignal.timeout?.(15000) })
+    const payload = await response.json()
+    if (!response.ok || payload.status !== 'success') throw new Error('Metadata unavailable')
+    const data = payload.data || {}
+    const finalUrl = normalizeUrl(data.url) || normalized
+    const host = new URL(finalUrl).hostname.toLowerCase()
+    const isMaps = host === 'maps.app.goo.gl' || host === 'goo.gl' || host === 'google.com' || host.includes('google.')
+    const mapsTitle = isMaps ? titleFromMapsUrl(finalUrl) || titleFromMapsUrl(normalized) : ''
+    const rawTitle = isMaps && /^google maps$/i.test(data.title || '') ? mapsTitle : data.title || mapsTitle
+    const titleParts = isMaps ? rawTitle.split(/\s+·\s+/).filter(Boolean) : [rawTitle]
+    const title = titleParts[0] || ''
+    const rawDescription = isMaps && /find local businesses|view maps|get driving directions/i.test(data.description || '') ? '' : data.description || ''
+    const description = isMaps ? [rawDescription, ...titleParts.slice(1)].filter(Boolean).join(' · ') : rawDescription
+    return { title, description, image_url: data.image?.url || null, final_url: finalUrl }
+  } catch {
+    try {
+      const response = await fetch(normalized, { signal: AbortSignal.timeout?.(8000) })
+      const html = await response.text()
+      const documentNode = new DOMParser().parseFromString(html, 'text/html')
+      const title = documentNode.querySelector('meta[property="og:title"], meta[name="twitter:title"]')?.content || documentNode.title
+      const description = documentNode.querySelector('meta[property="og:description"], meta[name="description"]')?.content || ''
+      const image = documentNode.querySelector('meta[property="og:image"], meta[name="twitter:image"]')?.content
+      return { title, description, image_url: image ? new URL(image, response.url).href : null, final_url: response.url }
+    } catch { return null }
+  }
 }
 
 function upsert(list, value) {
@@ -267,17 +292,39 @@ function ItemSheet({ item, countryId, username, onClose, onSave, onError }) {
   const [photoUrl, setPhotoUrl] = useState(item?.photo_url || '')
   const [photoPath, setPhotoPath] = useState(item?.photo_path || null)
   const [previewing, setPreviewing] = useState(false)
+  const [previewMessage, setPreviewMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const importedUrl = useRef('')
   const close = useCallback(() => { if (!saving) onClose() }, [onClose, saving])
   useTelegramBack(true, close)
 
-  async function findPhoto(url) {
-    if (!url || photoFile) return
+  async function importLink(url, field) {
+    const normalized = normalizeUrl(url)
+    if (!normalized || importedUrl.current === normalized) return
+    importedUrl.current = normalized
     setPreviewing(true)
-    const preview = await getLinkPreview(url)
-    if (preview?.image_url) { setPhotoUrl(preview.image_url); setPhotoPath(null) }
-    if (preview?.final_url && url === form.maps_url) setForm((current) => ({ ...current, maps_url: preview.final_url }))
+    setPreviewMessage('')
+    const preview = await getLinkPreview(normalized)
+    if (preview) {
+      setForm((current) => ({
+        ...current,
+        [field]: preview.final_url || normalized,
+        title: current.title.trim() || preview.title?.trim() || '',
+        description: current.description.trim() || preview.description?.trim() || '',
+      }))
+      if (preview.image_url && !photoFile) { setPhotoUrl(preview.image_url); setPhotoPath(null) }
+      setPreviewMessage('Данные заполнены')
+      notify()
+    } else {
+      importedUrl.current = ''
+      setPreviewMessage('Не удалось прочитать ссылку')
+    }
     setPreviewing(false)
+  }
+
+  function importPastedLink(event, field) {
+    const url = event.clipboardData.getData('text')
+    if (normalizeUrl(url)) window.setTimeout(() => void importLink(url, field), 0)
   }
 
   function choosePhoto(event) {
@@ -314,9 +361,10 @@ function ItemSheet({ item, countryId, username, onClose, onSave, onError }) {
       <label className="block"><span className="label">Название</span><input autoFocus className="field" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Куда хотите сходить?" /></label>
       <div><span className="label">Категория</span><div className="grid grid-cols-2 gap-2">{CATEGORIES.slice(1).map((value) => <button type="button" key={value} onClick={() => { setForm({ ...form, category: value }); haptic() }} className={`rounded-xl px-3 py-3 text-sm font-bold ${form.category === value ? 'bg-mint-600 text-white' : 'bg-white text-muted shadow-sm'}`}>{value}</button>)}</div></div>
       <label className="block"><span className="label">Описание</span><textarea className="field min-h-20 resize-none" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Коротко о месте" /></label>
-      <label className="block"><span className="label">Google Maps</span><span className="relative block"><MapPin size={17} className="field-icon" /><input className="field pl-10" value={form.maps_url} onChange={(event) => setForm({ ...form, maps_url: event.target.value })} onBlur={() => findPhoto(form.maps_url)} placeholder="Вставьте ссылку на место" /></span></label>
-      <label className="block"><span className="label">Сайт или карточка места</span><span className="relative block"><Link2 size={17} className="field-icon" /><input className="field pl-10" value={form.external_url} onChange={(event) => setForm({ ...form, external_url: event.target.value })} onBlur={() => findPhoto(form.external_url)} placeholder="Ссылка для автоматического фото" /></span></label>
-      <div><span className="label">Фото</span>{photoUrl ? <div className="relative overflow-hidden rounded-2xl"><img src={photoUrl} alt="Предпросмотр" className="h-40 w-full object-cover" /><button type="button" onClick={() => { setPhotoUrl(''); setPhotoFile(null); setPhotoPath(null) }} className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-xl bg-white/90 text-red-500"><Trash2 size={17} /></button></div> : <label className="flex h-28 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white text-sm font-bold text-muted">{previewing ? <><LoaderCircle size={19} className="animate-spin" /> Ищу фото…</> : <><ImagePlus size={20} /> Добавить фото</>}<input className="sr-only" type="file" accept="image/*" onChange={choosePhoto} /></label>}{!photoUrl && !previewing && (form.maps_url || form.external_url) && <button type="button" onClick={() => findPhoto(form.external_url || form.maps_url)} className="mt-2 text-xs font-bold text-mint-700">Найти фото по ссылке</button>}</div>
+      <label className="block"><span className="label">Google Maps</span><span className="relative block"><MapPin size={17} className="field-icon" /><input className="field pl-10" value={form.maps_url} onChange={(event) => { setForm({ ...form, maps_url: event.target.value }); setPreviewMessage('') }} onPaste={(event) => importPastedLink(event, 'maps_url')} onBlur={(event) => void importLink(event.currentTarget.value, 'maps_url')} placeholder="Вставьте ссылку — данные заполнятся" /></span></label>
+      <label className="block"><span className="label">Сайт или карточка места</span><span className="relative block"><Link2 size={17} className="field-icon" /><input className="field pl-10" value={form.external_url} onChange={(event) => { setForm({ ...form, external_url: event.target.value }); setPreviewMessage('') }} onPaste={(event) => importPastedLink(event, 'external_url')} onBlur={(event) => void importLink(event.currentTarget.value, 'external_url')} placeholder="Вставьте ссылку — данные заполнятся" /></span></label>
+      {(previewing || previewMessage) && <div className={`-mt-2 flex items-center gap-2 text-xs font-bold ${previewMessage.startsWith('Не') ? 'text-amber-600' : 'text-mint-700'}`}>{previewing ? <><LoaderCircle size={15} className="animate-spin" /> Загружаю название, описание и фото…</> : <><Check size={15} /> {previewMessage}</>}</div>}
+      <div><span className="label">Фото</span>{photoUrl ? <div className="relative overflow-hidden rounded-2xl"><img src={photoUrl} alt="Предпросмотр" className="h-40 w-full object-cover" /><button type="button" onClick={() => { setPhotoUrl(''); setPhotoFile(null); setPhotoPath(null) }} className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-xl bg-white/90 text-red-500"><Trash2 size={17} /></button></div> : <label className="flex h-28 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white text-sm font-bold text-muted">{previewing ? <><LoaderCircle size={19} className="animate-spin" /> Загружаю данные…</> : <><ImagePlus size={20} /> Добавить фото</>}<input className="sr-only" type="file" accept="image/*" onChange={choosePhoto} /></label>}{!photoUrl && !previewing && (form.maps_url || form.external_url) && <button type="button" onClick={() => { importedUrl.current = ''; void importLink(form.external_url || form.maps_url, form.external_url ? 'external_url' : 'maps_url') }} className="mt-2 text-xs font-bold text-mint-700">Повторить загрузку по ссылке</button>}</div>
       <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-ink px-4 py-4 font-extrabold text-white disabled:opacity-60">{saving ? <LoaderCircle className="animate-spin" size={20} /> : <Check size={20} />} Сохранить</button>
     </form>
   </Sheet>
