@@ -1,9 +1,22 @@
 -- Запустите целиком в Supabase → SQL Editor.
 create extension if not exists pgcrypto;
 
+create table if not exists public.countries (
+  id text primary key,
+  name text not null check (char_length(name) between 1 and 80),
+  emoji text not null default '✈️',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.countries (id, name, emoji, sort_order)
+values ('vietnam', 'Вьетнам', '🇻🇳', 0), ('thailand', 'Таиланд', '🇹🇭', 1)
+on conflict (id) do nothing;
+
 create table if not exists public.checklist_items (
   id uuid primary key default gen_random_uuid(),
-  country text not null check (country in ('vietnam', 'thailand')),
+  country text not null references public.countries(id) on delete restrict,
   category text not null check (category in ('Заведения', 'Хайки', 'Города', 'Досуг')),
   title text not null check (char_length(title) between 1 and 160),
   description text not null default '',
@@ -15,6 +28,7 @@ create table if not exists public.checklist_items (
   is_favorite boolean not null default false,
   priority smallint not null default 1 check (priority between 1 and 3),
   external_url text,
+  maps_url text,
   planned_date date,
   created_by text not null check (created_by in ('neverlordd', 'puk_privet')),
   created_at timestamptz not null default now(),
@@ -40,10 +54,28 @@ alter table public.checklist_items
   add column if not exists is_favorite boolean not null default false,
   add column if not exists priority smallint not null default 1,
   add column if not exists external_url text,
+  add column if not exists maps_url text,
   add column if not exists planned_date date,
   add column if not exists created_by text not null default 'neverlordd',
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
+
+alter table public.checklist_items
+  drop constraint if exists checklist_items_country_check;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.checklist_items'::regclass
+      and contype = 'f'
+      and conname = 'checklist_items_country_fkey'
+  ) then
+    alter table public.checklist_items
+      add constraint checklist_items_country_fkey
+      foreign key (country) references public.countries(id) on delete restrict;
+  end if;
+end $$;
 
 create index if not exists checklist_items_country_category_idx
   on public.checklist_items (country, category, created_at);
@@ -98,6 +130,23 @@ create trigger checklist_items_set_updated_at
 before update on public.checklist_items
 for each row execute function public.set_updated_at();
 
+drop trigger if exists countries_set_updated_at on public.countries;
+create trigger countries_set_updated_at
+before update on public.countries
+for each row execute function public.set_updated_at();
+
+alter table public.countries enable row level security;
+
+drop policy if exists "anon can read countries" on public.countries;
+create policy "anon can read countries" on public.countries for select to anon using (true);
+drop policy if exists "anon can add countries" on public.countries;
+create policy "anon can add countries" on public.countries for insert to anon with check (true);
+drop policy if exists "anon can update countries" on public.countries;
+create policy "anon can update countries" on public.countries for update to anon using (true) with check (true);
+drop policy if exists "anon can delete countries" on public.countries;
+create policy "anon can delete countries" on public.countries for delete to anon using (true);
+grant select, insert, update, delete on public.countries to anon;
+
 alter table public.checklist_items enable row level security;
 
 drop policy if exists "anon can read checklist" on public.checklist_items;
@@ -132,6 +181,18 @@ begin
       and tablename = 'checklist_items'
   ) then
     alter publication supabase_realtime add table public.checklist_items;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'countries'
+  ) then
+    alter publication supabase_realtime add table public.countries;
   end if;
 end $$;
 

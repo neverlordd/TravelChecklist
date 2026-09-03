@@ -2,9 +2,9 @@
 
 Совместный чеклист поездок для Telegram Mini Apps: React, Vite, Tailwind CSS, Supabase Database/Realtime/Storage и GitHub Pages.
 
-В приложении есть поиск, фильтры, умная сортировка, избранное, приоритеты, даты,
-внешние ссылки, координаты Google Maps, оптимизация фотографий, общий прогресс,
-автосохранение черновика, отмена удаления и автоматическое восстановление Realtime.
+В приложении есть управление странами, горизонтальные вкладки категорий,
+избранное, компактные карточки, ссылки Google Maps, автоматический поиск фото,
+оптимизация загружаемых фотографий, отмена удаления и синхронизация Realtime.
 
 ## 1. Подготовить Supabase
 
@@ -14,8 +14,12 @@
 4. В **Database → Replication** убедитесь, что `checklist_items` включена в `supabase_realtime` (SQL делает это автоматически).
 5. В **Storage** должен появиться публичный bucket `photos`.
 
-Для уже настроенного проекта небольшие обновления схемы также лежат в
-`migration-ux.sql`. Они не удаляют данные и не меняют политики доступа.
+Для уже настроенного проекта обновления лежат в `migration-ux.sql` и
+`migration-countries.sql`. Миграции не удаляют существующие места.
+
+Функция поиска фото по ссылке Google Maps находится в
+`supabase/functions/link-preview/index.ts`. Она намеренно принимает только
+адреса Google Maps и не работает как публичный прокси произвольных сайтов.
 
 ## 2. Локальный запуск
 
@@ -34,7 +38,7 @@ npm run dev
 npm create vite@latest telegram-travel-checklist -- --template react
 cd telegram-travel-checklist
 npm install
-npm install @supabase/supabase-js lucide-react
+npm install @supabase/supabase-js lucide-react @fontsource-variable/manrope
 npm install -D tailwindcss@3 postcss autoprefixer gh-pages
 npx tailwindcss init -p
 ```
