@@ -28,7 +28,10 @@ body {
 }
 
 button, input, textarea, select { font: inherit; }
-button { touch-action: manipulation; }
+button {
+  border-radius: 9999px;
+  touch-action: manipulation;
+}
 input, textarea, select { font-size: 16px; }
 
 ::-webkit-scrollbar { width: 8px; }
