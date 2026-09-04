@@ -87,6 +87,26 @@ function titleFromMapsUrl(url) {
   } catch { return '' }
 }
 
+function isGoogleMapsUrl(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    return host === 'maps.app.goo.gl' || host === 'goo.gl' || host === 'google.com' || host.includes('google.')
+  } catch { return false }
+}
+
+function placeTypeFromMaps(...sources) {
+  const parts = sources
+    .flatMap((value) => String(value || '').split(/\s*[·|]\s*/))
+    .map((value) => value.trim())
+    .filter(Boolean)
+  const type = parts.find((value) => value.length <= 70
+    && !/[★☆⭐]/u.test(value)
+    && !/^\d(?:[.,]\d)?(?:\s*\([\d,.+\sKМkм]+\))?$/u.test(value)
+    && !/\d{2,}|https?:|www\.|\b(?:open|closed|opens|closes|открыто|закрыто)\b/iu.test(value)
+    && !/find local businesses|view maps|get driving directions/i.test(value))
+  return type?.replace(/\s+(?:in|в)\s+[^,]+(?:,.*)?$/iu, '').trim() || ''
+}
+
 async function getLinkPreview(url) {
   const normalized = normalizeUrl(url)
   if (!normalized) return null
@@ -102,22 +122,25 @@ async function getLinkPreview(url) {
     if (!response.ok || payload.status !== 'success') throw new Error('Metadata unavailable')
     const data = payload.data || {}
     const finalUrl = normalizeUrl(data.url) || normalized
-    const host = new URL(finalUrl).hostname.toLowerCase()
-    const isMaps = host === 'maps.app.goo.gl' || host === 'goo.gl' || host === 'google.com' || host.includes('google.')
+    const isMaps = isGoogleMapsUrl(finalUrl)
     const mapsTitle = isMaps ? titleFromMapsUrl(finalUrl) || titleFromMapsUrl(normalized) : ''
     const rawTitle = isMaps && /^google maps$/i.test(data.title || '') ? mapsTitle : data.title || mapsTitle
     const titleParts = isMaps ? rawTitle.split(/\s+·\s+/).filter(Boolean) : [rawTitle]
     const title = titleParts[0] || ''
-    const rawDescription = isMaps && /find local businesses|view maps|get driving directions/i.test(data.description || '') ? '' : data.description || ''
-    const description = isMaps ? [rawDescription, ...titleParts.slice(1)].filter(Boolean).join(' · ') : rawDescription
+    const rawDescription = data.description || ''
+    const description = isMaps ? placeTypeFromMaps(rawDescription, ...titleParts.slice(1)) : rawDescription
     return { title, description, image_url: data.image?.url || null, final_url: finalUrl }
   } catch {
     try {
       const response = await fetch(normalized, { signal: AbortSignal.timeout?.(8000) })
       const html = await response.text()
       const documentNode = new DOMParser().parseFromString(html, 'text/html')
-      const title = documentNode.querySelector('meta[property="og:title"], meta[name="twitter:title"]')?.content || documentNode.title
-      const description = documentNode.querySelector('meta[property="og:description"], meta[name="description"]')?.content || ''
+      const rawTitle = documentNode.querySelector('meta[property="og:title"], meta[name="twitter:title"]')?.content || documentNode.title
+      const rawDescription = documentNode.querySelector('meta[property="og:description"], meta[name="description"]')?.content || ''
+      const isMaps = isGoogleMapsUrl(response.url) || isGoogleMapsUrl(normalized)
+      const titleParts = isMaps ? rawTitle.split(/\s+·\s+/).filter(Boolean) : [rawTitle]
+      const title = titleParts[0] || ''
+      const description = isMaps ? placeTypeFromMaps(rawDescription, ...titleParts.slice(1)) : rawDescription
       const image = documentNode.querySelector('meta[property="og:image"], meta[name="twitter:image"]')?.content
       return { title, description, image_url: image ? new URL(image, response.url).href : null, final_url: response.url }
     } catch { return null }
