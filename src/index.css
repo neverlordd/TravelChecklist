@@ -12,7 +12,7 @@
 
 * { box-sizing: border-box; }
 
-html { background: #f9fafb; }
+html { background: #f3f5f4; }
 
 html, body { overscroll-behavior-y: none; }
 
@@ -22,8 +22,8 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   background:
-    radial-gradient(circle at 100% 0%, rgba(204, 251, 241, 0.55), transparent 32rem),
-    #f9fafb;
+    radial-gradient(circle at 100% 0%, rgba(204, 251, 241, 0.62), transparent 32rem),
+    #f3f5f4;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -36,11 +36,11 @@ input, textarea, select { font-size: 16px; }
 
 @layer components {
   .field {
-    @apply min-h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-ink outline-none transition placeholder:text-slate-400 focus:border-mint-400 focus:ring-4 focus:ring-mint-100 sm:text-[15px];
+    @apply min-h-12 w-full rounded-[18px] border border-white/80 bg-white/95 px-4 py-3 text-base text-ink shadow-[0_1px_3px_rgba(23,33,31,0.06)] outline-none transition placeholder:text-slate-400 focus:border-mint-400 focus:ring-4 focus:ring-mint-100 sm:text-[15px];
   }
 
   .icon-button {
-    @apply inline-flex h-10 w-10 items-center justify-center rounded-xl text-muted transition hover:bg-slate-100 hover:text-ink active:scale-95;
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition hover:bg-slate-100 hover:text-ink active:scale-95;
   }
 
   .label {
