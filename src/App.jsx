@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
   Check, ChevronDown, ExternalLink, Heart, ImagePlus, Link2, LoaderCircle,
-  LockKeyhole, Map, MapPin, Pencil, Plus, Settings, Trash2, X,
+  LockKeyhole, Map, MapPin, Pencil, Plus, Settings, Star, Trash2, X,
 } from 'lucide-react'
 
 const SUPABASE_URL = 'https://grsiborhqvvxssjrxrsk.supabase.co'
@@ -253,14 +253,14 @@ export default function App() {
 
       <CategoryTabs value={category} onChange={setCategory} />
       {error && <ErrorBanner text={error} close={() => setError('')} />}
-      {visibleItems.length ? <main className="space-y-2.5">{visibleItems.map((item) => <PlaceCard key={item.id} item={item} country={countries.find((value) => value.id === item.country)} showCountry={section === 'favorites'} onOpen={() => setPreviewId(item.id)} onToggle={() => patchItem(item, { is_completed: !item.is_completed })} onFavorite={() => patchItem(item, { is_favorite: !item.is_favorite })} onEdit={() => setItemModal(item)} onDelete={() => deleteItem(item)} />)}</main> : <EmptyState favorites={section === 'favorites'} onAdd={() => setItemModal({})} />}
+      {visibleItems.length ? <main className="space-y-2.5">{visibleItems.map((item) => <PlaceCard key={item.id} item={item} country={countries.find((value) => value.id === item.country)} showCountry={section === 'favorites'} onOpen={() => setPreviewId(item.id)} onToggle={() => patchItem(item, { is_completed: !item.is_completed })} onFavorite={() => patchItem(item, { is_favorite: !item.is_favorite })} onRate={(rating) => patchItem(item, { rating })} onEdit={() => setItemModal(item)} onDelete={() => deleteItem(item)} />)}</main> : <EmptyState favorites={section === 'favorites'} onAdd={() => setItemModal({})} />}
     </>}
 
     {section !== 'settings' && countries.length > 0 && <button onClick={() => setItemModal({})} className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-20 grid h-14 w-14 place-items-center rounded-full border border-white/20 bg-ink text-white shadow-[0_10px_28px_rgba(23,33,31,0.28)] transition active:scale-95 sm:right-6" aria-label="Добавить место"><Plus size={25} /></button>}
     <BottomNav value={section} onChange={(value) => { setSection(value); setCategory('Все'); haptic() }} />
     {pendingDelete && <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] left-3 z-40 flex max-w-[calc(100%-5.5rem)] items-center gap-3 rounded-[22px] bg-ink px-4 py-3 text-sm text-white shadow-[0_10px_28px_rgba(23,33,31,0.25)] sm:left-6"><span className="truncate">Место удалено</span><button onClick={undoDelete} className="min-h-8 font-extrabold text-mint-200">Вернуть</button></div>}
     {itemModal && <ItemSheet item={itemModal.id ? itemModal : null} countryId={countryId} username={username} onClose={() => setItemModal(null)} onSave={(saved) => { setItems((current) => upsert(current, saved)); setItemModal(null); notify() }} onError={setError} />}
-    {previewItem && <PlacePreview item={previewItem} country={countries.find((value) => value.id === previewItem.country)} onClose={() => setPreviewId(null)} onEdit={() => { setPreviewId(null); setItemModal(previewItem) }} onToggle={() => patchItem(previewItem, { is_completed: !previewItem.is_completed })} onFavorite={() => patchItem(previewItem, { is_favorite: !previewItem.is_favorite })} />}
+    {previewItem && <PlacePreview item={previewItem} country={countries.find((value) => value.id === previewItem.country)} onClose={() => setPreviewId(null)} onEdit={() => { setPreviewId(null); setItemModal(previewItem) }} onToggle={() => patchItem(previewItem, { is_completed: !previewItem.is_completed })} onFavorite={() => patchItem(previewItem, { is_favorite: !previewItem.is_favorite })} onRate={(rating) => patchItem(previewItem, { rating })} />}
     {countryModal && <CountrySheet country={countryModal.id ? countryModal : null} order={countries.length} onClose={() => setCountryModal(null)} onSave={(saved) => { setCountries((current) => upsert(current, saved).sort((a, b) => a.sort_order - b.sort_order)); setCountryId(saved.id); setCountryModal(null); notify() }} onError={setError} />}
   </div>
 }
@@ -269,19 +269,24 @@ function CategoryTabs({ value, onChange }) {
   return <nav className="sticky top-[env(safe-area-inset-top)] z-10 -mx-3 mb-3 overflow-x-auto overscroll-x-contain bg-canvas/95 px-3 py-2.5 backdrop-blur [scrollbar-width:none] sm:-mx-6 sm:mb-4 sm:px-6 [&::-webkit-scrollbar]:hidden"><div className="flex w-max gap-2">{CATEGORIES.map((item) => <button key={item} onClick={() => { onChange(item); haptic() }} className={`min-h-11 rounded-full px-4 py-2.5 text-sm font-bold transition active:scale-[0.98] ${value === item ? 'bg-mint-600 text-white shadow-sm' : 'bg-white text-muted shadow-sm'}`}>{item}</button>)}</div></nav>
 }
 
-function PlaceCard({ item, country, showCountry, onOpen, onToggle, onFavorite, onEdit, onDelete }) {
+function PlaceCard({ item, country, showCountry, onOpen, onToggle, onFavorite, onRate, onEdit, onDelete }) {
   const mapUrl = item.maps_url || (item.latitude != null && item.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}` : null)
   const stop = (callback) => (event) => { event.stopPropagation(); callback() }
   return <article onClick={onOpen} className={`flex min-h-[104px] cursor-pointer gap-2.5 rounded-[26px] border bg-white/95 p-2 shadow-[0_5px_22px_rgba(23,33,31,0.055)] transition active:scale-[0.99] sm:gap-3 sm:p-2.5 ${item.is_completed ? 'border-mint-100 opacity-75' : 'border-white'}`}>
     {item.photo_url ? <img src={item.photo_url} alt="" className="h-[88px] w-[82px] shrink-0 rounded-[20px] object-cover sm:h-[84px] sm:w-[92px]" loading="lazy" /> : <div className="grid h-[88px] w-[82px] shrink-0 place-items-center rounded-[20px] bg-mint-50 text-mint-600 sm:h-[84px] sm:w-[92px]"><MapPin size={24} /></div>}
     <div className="min-w-0 flex-1 py-0.5"><div className="flex items-start gap-1"><button onClick={stop(onToggle)} className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 ${item.is_completed ? 'border-mint-500 bg-mint-500 text-white' : 'border-slate-300 text-transparent'}`} aria-label="Выполнено"><Check size={15} strokeWidth={3} /></button><h2 className={`line-clamp-2 flex-1 pt-0.5 text-[13px] font-extrabold leading-[1.35] sm:text-sm ${item.is_completed ? 'line-through text-muted' : 'text-ink'}`}>{item.title}</h2><button onClick={stop(onFavorite)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full active:bg-rose-50" aria-label="Избранное"><Heart size={19} className={item.is_favorite ? 'fill-rose-500 text-rose-500' : 'text-slate-300'} /></button></div>
       {item.description && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">{item.description}</p>}
+      {item.is_completed && <StarRating value={item.rating} onChange={onRate} compact />}
       <div className="mt-1.5 flex min-w-0 items-center gap-1"><span className="max-w-[4.5rem] truncate rounded-full bg-slate-50 px-2 py-1.5 text-[10px] font-bold text-muted min-[380px]:max-w-[6.5rem]">{showCountry ? `${country?.emoji || '✈️'} ${country?.name || ''}` : item.category}</span>{mapUrl && <a href={mapUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-mint-50 px-2 text-[10px] font-extrabold text-mint-700"><MapPin size={12} /> Карта</a>}<span className="flex-1" /><button onClick={stop(onEdit)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted active:bg-slate-100" aria-label="Редактировать"><Pencil size={15} /></button><button onClick={stop(onDelete)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 active:bg-red-50 active:text-red-500" aria-label="Удалить"><Trash2 size={15} /></button></div>
     </div>
   </article>
 }
 
-function PlacePreview({ item, country, onClose, onEdit, onToggle, onFavorite }) {
+function StarRating({ value = 0, onChange, compact = false }) {
+  return <div className={`flex items-center ${compact ? 'mt-1 gap-0' : 'gap-1'}`} role="group" aria-label="Оценка места">{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" onClick={(event) => { event.stopPropagation(); onChange(value === star ? null : star); haptic() }} className={`grid shrink-0 place-items-center rounded-full active:scale-90 ${compact ? 'h-6 w-6' : 'h-10 w-10'}`} aria-label={`${star} из 5`}><Star size={compact ? 16 : 26} strokeWidth={2} className={star <= (value || 0) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'} /></button>)}</div>
+}
+
+function PlacePreview({ item, country, onClose, onEdit, onToggle, onFavorite, onRate }) {
   const close = useCallback(() => onClose(), [onClose])
   useTelegramBack(true, close)
   const mapUrl = item.maps_url || (item.latitude != null && item.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}` : null)
@@ -290,6 +295,7 @@ function PlacePreview({ item, country, onClose, onEdit, onToggle, onFavorite }) 
     <div className="mb-3 flex flex-wrap items-center gap-2"><span className="rounded-full bg-mint-50 px-3 py-1.5 text-xs font-extrabold text-mint-700">{item.category}</span><span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-muted">{country?.emoji || '✈️'} {country?.name || ''}</span></div>
     <h2 className={`text-2xl font-extrabold leading-tight text-ink ${item.is_completed ? 'line-through opacity-60' : ''}`}>{item.title}</h2>
     {item.description && <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-muted">{item.description}</p>}
+    {item.is_completed && <div className="mt-5 rounded-[22px] bg-white/95 p-3 shadow-[0_3px_14px_rgba(23,33,31,0.06)]"><p className="mb-1 text-xs font-extrabold text-muted">Ваша оценка</p><StarRating value={item.rating} onChange={onRate} /></div>}
     <div className="mt-5 grid grid-cols-2 gap-2"><button onClick={onToggle} className={`flex min-h-12 items-center justify-center gap-2 rounded-[20px] text-sm font-extrabold ${item.is_completed ? 'bg-mint-600 text-white' : 'bg-white/95 text-muted shadow-[0_3px_14px_rgba(23,33,31,0.06)]'}`}><Check size={18} /> {item.is_completed ? 'Выполнено' : 'Отметить'}</button><button onClick={onFavorite} className={`flex min-h-12 items-center justify-center gap-2 rounded-[20px] text-sm font-extrabold ${item.is_favorite ? 'bg-rose-50 text-rose-600' : 'bg-white/95 text-muted shadow-[0_3px_14px_rgba(23,33,31,0.06)]'}`}><Heart size={18} className={item.is_favorite ? 'fill-current' : ''} /> {item.is_favorite ? 'Любимое' : 'В избранное'}</button></div>
     {item.external_url && <a href={item.external_url} target="_blank" rel="noreferrer" className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-[20px] border border-white bg-white/95 text-sm font-extrabold text-ink shadow-[0_3px_14px_rgba(23,33,31,0.06)]"><ExternalLink size={18} /> Открыть сайт</a>}
   </Sheet>

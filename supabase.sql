@@ -25,6 +25,7 @@ create table if not exists public.checklist_items (
   latitude double precision check (latitude is null or latitude between -90 and 90),
   longitude double precision check (longitude is null or longitude between -180 and 180),
   is_completed boolean not null default false,
+  rating smallint check (rating is null or rating between 1 and 5),
   is_favorite boolean not null default false,
   priority smallint not null default 1 check (priority between 1 and 3),
   external_url text,
@@ -51,6 +52,7 @@ alter table public.checklist_items
   add column if not exists latitude double precision,
   add column if not exists longitude double precision,
   add column if not exists is_completed boolean not null default false,
+  add column if not exists rating smallint,
   add column if not exists is_favorite boolean not null default false,
   add column if not exists priority smallint not null default 1,
   add column if not exists external_url text,
@@ -59,6 +61,10 @@ alter table public.checklist_items
   add column if not exists created_by text not null default 'neverlordd',
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
+
+alter table public.checklist_items
+  drop constraint if exists checklist_items_rating_check,
+  add constraint checklist_items_rating_check check (rating is null or rating between 1 and 5);
 
 alter table public.checklist_items
   drop constraint if exists checklist_items_country_check;
