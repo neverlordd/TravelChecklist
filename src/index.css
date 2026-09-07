@@ -82,7 +82,7 @@ input, textarea, select { font-size: 16px; }
 :root {
   --color-canvas: 246 245 249;
   --color-muted: 103 96 119;
-  --glass: rgba(255, 255, 255, .66);
+  --glass: rgba(255, 255, 255, .76);
   --glass-strong: rgba(255, 255, 255, .86);
   --glass-edge: rgba(255, 255, 255, .88);
   --glass-shine: rgba(255, 255, 255, .92);
@@ -95,7 +95,7 @@ input, textarea, select { font-size: 16px; }
 
 html.dark {
   --color-muted: 187 181 204;
-  --glass: rgba(40, 34, 57, .66);
+  --glass: rgba(40, 34, 57, .80);
   --glass-strong: rgba(34, 29, 48, .91);
   --glass-edge: rgba(231, 218, 255, .16);
   --glass-shine: rgba(244, 229, 255, .19);
@@ -152,7 +152,7 @@ select option { color: rgb(var(--color-ink)); background: rgb(var(--color-surfac
   backdrop-filter: blur(22px) saturate(150%);
 }
 .app-shell .status-switch { border-radius: 28px; padding: 4px; }
-.status-switch button { font-weight: 700; padding-inline: 16px; }
+.status-switch button { min-height: 44px; font-weight: 700; padding-inline: 14px; }
 .status-switch button.text-white {
   color: var(--accent-text);
   background: var(--accent-soft);
@@ -167,11 +167,13 @@ select option { color: rgb(var(--color-ink)); background: rgb(var(--color-surfac
   margin-bottom: 4px;
 }
 .category-bar button {
+  padding-inline: 12px;
+  scroll-snap-align: start;
   background: var(--glass-control);
   border: 1px solid var(--glass-edge);
   box-shadow: inset 0 1px 0 var(--glass-shine);
   color: rgb(var(--color-muted));
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 .category-bar button.text-white,
@@ -201,10 +203,10 @@ select option { color: rgb(var(--color-ink)); background: rgb(var(--color-surfac
   backdrop-filter: blur(14px);
 }
 .place-copy h2 { font-weight: 750; letter-spacing: -.025em; overflow-wrap: anywhere; }
-.place-copy p { line-height: 1.55; font-size: 12px; }
+.place-copy p { line-height: 1.55; font-size: 13px; }
 .places-grid .place-photo { height: auto; aspect-ratio: 1.2; }
-.places-grid .place-copy { min-height: 92px; padding: 12px 3px 14px; }
-.places-grid .place-copy h2 { font-size: 14px; }
+.places-grid .place-copy { min-height: 84px; padding: 12px 3px 12px; }
+.places-grid .place-copy h2 { font-size: 15px; }
 .place-card > footer { border-color: var(--glass-line); }
 .place-card > footer > div:not([role="group"]) > :is(button, a) {
   min-height: 44px;
@@ -228,22 +230,41 @@ select option { color: rgb(var(--color-ink)); background: rgb(var(--color-surfac
   backdrop-filter: blur(32px) saturate(180%);
   box-shadow: inset 0 1px 1px var(--glass-shine), 0 12px 40px -16px rgba(31, 16, 57, .3);
 }
-.glass-dock button { border-radius: 27px; font-size: 10px; letter-spacing: .015em; color: rgb(var(--color-muted)); }
+.glass-dock button { border-radius: 27px; font-size: 11px; letter-spacing: 0; color: rgb(var(--color-muted)); }
 .glass-dock button.shadow-inner {
   color: var(--accent-text);
   background: var(--accent-soft);
   box-shadow: inset 0 1px 1px var(--glass-shine), 0 2px 8px rgba(60, 26, 114, .06);
 }
-.app-shell .add-place { width: 58px; height: 58px; right: max(16px, calc((100vw - 640px) / 2)); }
+.app-shell .add-place {
+  width: 60px;
+  height: 60px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  right: max(12px, calc((100vw - 640px) / 2));
+}
+.app-shell[data-has-add="true"] .glass-dock {
+  left: max(12px, calc((100vw - 640px) / 2));
+  right: auto;
+  width: min(calc(100% - 96px), 556px);
+  margin-inline: 0;
+}
 .settings-screen section { border-radius: 28px; padding: 16px; }
 .settings-screen section .bg-canvas { background: var(--glass-control); border: 1px solid var(--glass-line); }
-.settings-screen [role="switch"] span { left: 0; }
+.settings-screen [role="switch"] { min-height: 44px; background: transparent; }
+.settings-screen [role="switch"]::before { content: ''; position: absolute; inset: 6px 0; border-radius: 999px; background: rgb(var(--color-muted) / .18); transition: background-color .2s ease; }
+.settings-screen [role="switch"][aria-checked="true"]::before { background: #8251e4; }
+.settings-screen [role="switch"] span { left: 0; top: 10px; }
 .sheet-overlay {
+  top: var(--sheet-top, 0px);
+  bottom: auto;
+  height: var(--sheet-height, 100dvh);
   background: rgba(20, 13, 34, .25);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 .sheet-overlay .glass-sheet {
+  max-height: calc(100% - env(safe-area-inset-top) - 8px);
+  outline: none;
   background: linear-gradient(145deg, var(--glass-control), transparent 55%), var(--glass-strong);
   border-color: var(--glass-edge);
   box-shadow: inset 0 1px 0 var(--glass-shine), 0 30px 90px rgba(25, 11, 49, .3);
@@ -251,20 +272,74 @@ select option { color: rgb(var(--color-ink)); background: rgb(var(--color-surfac
   backdrop-filter: blur(36px) saturate(160%);
   animation: sheet-enter .3s cubic-bezier(.2, .8, .2, 1);
 }
-.glass-sheet > header { padding-top: 18px; padding-bottom: 18px; }
+.glass-sheet > header { padding-top: 12px; padding-bottom: 14px; }
 .glass-sheet > header h1 { letter-spacing: -.035em; font-weight: 800; }
 .glass-sheet > footer { background: var(--glass-control); border-color: var(--glass-line); }
 .glass-sheet .field {
+  min-height: 52px;
+  font-size: 16px;
+  line-height: 1.5;
+  scroll-margin-block: 16px;
   background: var(--glass-control);
   border: 1px solid var(--glass-edge);
   border-radius: 20px;
   box-shadow: inset 0 1px 2px rgba(38, 21, 64, .035), 0 1px 0 var(--glass-shine);
 }
 .glass-sheet .field:focus { border-color: #a78bfa; box-shadow: 0 0 0 4px rgba(155, 111, 241, .13); }
-.glass-sheet .label { font-size: 12px; font-weight: 700; margin-left: 4px; margin-bottom: 8px; }
+.glass-sheet .label { font-size: 13px; font-weight: 700; margin-left: 4px; margin-bottom: 8px; }
 .glass-sheet .import-panel { background: var(--accent-soft); border-color: var(--glass-edge); border-radius: 26px; padding: 16px; }
-.glass-sheet .icon-button { background: var(--glass-control); border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 var(--glass-shine); }
+.glass-sheet .icon-button { min-width: 44px; min-height: 44px; background: var(--glass-control); border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 var(--glass-shine); }
 .glass-sheet .text-mint-700 { color: var(--accent-text); }
+
+.app-shell { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+.app-shell .layout-switch { width: 54px; height: 54px; }
+.app-shell .page-header-favorites { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.page-header > label { min-width: 0; }
+.page-header select { min-height: 48px; }
+.app-shell .category-bar { scroll-snap-type: x proximity; scroll-padding-inline: 12px; }
+.category-bar button { box-shadow: none; }
+.category-bar button[aria-pressed="true"] { box-shadow: inset 0 1px 1px rgba(255,255,255,.4), 0 5px 14px -7px rgba(116,57,211,.45); }
+.place-open { border-radius: 22px; outline-offset: 3px; }
+.place-open:focus-visible { outline: 3px solid #a78bfa; }
+.place-card > footer > div:not([role="group"]) > :is(button, a) { box-shadow: inset 0 1px 0 var(--glass-shine); }
+.place-card > footer > div:not([role="group"]) > a { color: var(--accent-text); background: var(--accent-soft); }
+.places-list [aria-label="Оценка места"] button { width: 40px; height: 40px; }
+.places-grid [aria-label="Оценка места"] button { height: 40px; }
+.settings-screen .icon-button { width: 44px; height: 44px; }
+.settings-screen section h2 { line-height: 1.4; }
+.settings-screen section p { line-height: 1.55; }
+.sheet-overlay .glass-sheet[data-short="true"] { max-height: calc(100% - env(safe-area-inset-top) - 48px); }
+.glass-sheet .sheet-content { scroll-padding-block: 16px; overflow-wrap: anywhere; }
+.glass-sheet .sheet-content > form { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+.glass-sheet > footer :is(a, button) { line-height: 1.35; }
+.glass-sheet button[aria-label="Удалить фото"] { width: 44px; height: 44px; }
+.glass-sheet input::placeholder, .glass-sheet textarea::placeholder { color: rgb(var(--color-muted)); opacity: .85; }
+.glass-sheet .field:disabled, button:disabled { cursor: wait; }
+.glass-sheet label:has(input[type="file"]:focus-visible) { outline: 3px solid #a78bfa; outline-offset: 3px; }
+.error-notice { position: fixed; z-index: 70; top: calc(12px + env(safe-area-inset-top)); left: 12px; right: 12px; max-width: 616px; margin-inline: auto; }
+.error-notice > div { background: #fff0f0; border: 1px solid #f6baba; box-shadow: 0 8px 32px rgba(48, 12, 30, .16); }
+.error-notice span { min-width: 0; overflow-wrap: anywhere; max-height: 22dvh; overflow-y: auto; }
+.error-notice button { width: 44px; height: 44px; display: grid; place-items: center; }
+html.dark .error-notice > div { background: #3b242f; border-color: #7b4158; }
+.places-grid .place-card > footer > div:not([role="group"]) { gap: 6px; }
+
+@media (min-width: 640px) {
+  .app-shell .page-header { flex-wrap: wrap; }
+  .page-header > label { flex: 1; }
+  .sheet-overlay .glass-sheet, .sheet-overlay .glass-sheet[data-short="true"] { max-height: 100%; }
+}
+@media (max-width: 374px) {
+  .places-grid .place-card > footer > div:not([role="group"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .places-grid .place-copy { min-height: 88px; }
+  .glass-dock button { font-size: 10px; }
+}
+@media (max-height: 500px) {
+  .sheet-overlay .glass-sheet, .sheet-overlay .glass-sheet[data-short="true"] { max-height: calc(100% - 4px); }
+  .glass-sheet .sheet-handle { display: none; }
+  .glass-sheet > header { padding-block: 6px; }
+  .glass-sheet > footer { padding-block: 8px; }
+  .glass-sheet > footer :is(button, a) { min-height: 48px; }
+}
 
 @keyframes sheet-enter { from { opacity: 0; transform: translateY(24px) scale(.985); } to { opacity: 1; transform: none; } }
 @media (hover: hover) and (pointer: fine) {

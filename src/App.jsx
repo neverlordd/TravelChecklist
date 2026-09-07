@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
   Check, ChevronDown, ExternalLink, Heart, ImagePlus, LayoutGrid, Link2, List, LoaderCircle,
@@ -271,7 +271,7 @@ export default function App() {
   if (!allowed) return <AccessDenied username={username} />
   if (loading) return <Loading />
 
-  return <div className="app-shell mx-auto min-h-dvh w-full max-w-2xl px-3 pb-[calc(6.75rem+env(safe-area-inset-bottom))] pt-[calc(40px+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(2rem+env(safe-area-inset-top))]">
+  return <div data-has-add={section !== 'settings' && countries.length > 0} className="app-shell mx-auto min-h-dvh w-full max-w-2xl px-3 pb-[calc(6.75rem+env(safe-area-inset-bottom))] pt-[calc(40px+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(2rem+env(safe-area-inset-top))]">
     {section === 'settings' ? <SettingsScreen countries={countries} username={username} darkMode={darkMode} onThemeChange={setDarkMode} onAdd={() => setCountryModal({})} onEdit={(country) => setCountryModal(country)} onDelete={async (country) => {
       if (countries.length === 1) return setError('Нельзя удалить единственную страну.')
       const count = items.filter((item) => item.country === country.id).length
@@ -280,22 +280,22 @@ export default function App() {
       const { error: deleteError } = await supabase.from('countries').delete().eq('id', country.id)
       if (deleteError) setError(deleteError.message); else notify()
     }} /> : <>
-      <header className="page-header mb-3 grid gap-3 sm:mb-5 sm:flex sm:items-center sm:justify-between">
+      <header className={`page-header ${section === 'favorites' ? 'page-header-favorites' : ''} mb-3 grid gap-3 sm:mb-5 sm:flex sm:items-center sm:justify-between`}>
         {section === 'favorites' ? <h1 className="text-[27px] font-extrabold tracking-tight text-ink sm:text-[28px]">Избранное</h1> : <label className="relative block min-w-0 max-w-full">
-          <select value={countryId} onChange={(event) => setCountryId(event.target.value)} className="w-full max-w-full appearance-none truncate bg-transparent py-1 pr-8 text-[27px] font-extrabold tracking-tight text-ink outline-none sm:w-auto sm:text-[28px]">
+          <select aria-label="Страна" value={countryId} onChange={(event) => setCountryId(event.target.value)} className="w-full max-w-full appearance-none truncate bg-transparent py-1 pr-8 text-[27px] font-extrabold tracking-tight text-ink outline-none sm:w-auto sm:text-[28px]">
             {countries.map((country) => <option key={country.id} value={country.id}>{country.emoji} {country.name}</option>)}
           </select><ChevronDown size={19} className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-muted" />
         </label>}
-        <div className={`flex items-center gap-2 ${section === 'favorites' ? 'justify-end' : ''}`}>{section === 'places' && <div className="status-switch grid min-w-0 flex-1 grid-cols-2 rounded-[20px] border border-white/80 bg-white/90 p-1 shadow-[0_4px_18px_rgba(23,33,31,0.06)] backdrop-blur dark:border-white/10 dark:bg-surface/90 sm:flex sm:flex-none"><button onClick={() => setStatus('active')} className={`min-h-10 px-4 py-2 text-xs font-bold transition ${status === 'active' ? 'bg-ink text-white shadow-sm dark:bg-mint-600' : 'text-muted'}`}>Активные</button><button onClick={() => setStatus('done')} className={`min-h-10 px-4 py-2 text-xs font-bold transition ${status === 'done' ? 'bg-ink text-white shadow-sm dark:bg-mint-600' : 'text-muted'}`}>Выполненные</button></div>}<button type="button" onClick={() => { setLayout((current) => current === 'list' ? 'grid' : 'list'); haptic() }} className="layout-switch grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/80 bg-white/90 text-ink shadow-[0_4px_18px_rgba(23,33,31,0.06)] outline-none transition focus-visible:ring-4 focus-visible:ring-mint-200 active:scale-95 dark:border-white/10 dark:bg-surface/90 dark:focus-visible:ring-mint-500/30" aria-label={layout === 'list' ? 'Показать сеткой' : 'Показать списком'}>{layout === 'list' ? <LayoutGrid size={20} /> : <List size={21} />}</button></div>
+        <div className={`flex items-center gap-2 ${section === 'favorites' ? 'justify-end' : ''}`}>{section === 'places' && <div className="status-switch grid min-w-0 flex-1 grid-cols-2 rounded-[20px] border border-white/80 bg-white/90 p-1 shadow-[0_4px_18px_rgba(23,33,31,0.06)] backdrop-blur dark:border-white/10 dark:bg-surface/90 sm:flex sm:flex-none"><button aria-pressed={status === 'active'} onClick={() => setStatus('active')} className={`min-h-10 px-4 py-2 text-xs font-bold transition ${status === 'active' ? 'bg-ink text-white shadow-sm dark:bg-mint-600' : 'text-muted'}`}>Активные</button><button aria-pressed={status === 'done'} onClick={() => setStatus('done')} className={`min-h-10 px-4 py-2 text-xs font-bold transition ${status === 'done' ? 'bg-ink text-white shadow-sm dark:bg-mint-600' : 'text-muted'}`}>Выполненные</button></div>}<button type="button" onClick={() => { setLayout((current) => current === 'list' ? 'grid' : 'list'); haptic() }} className="layout-switch grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/80 bg-white/90 text-ink shadow-[0_4px_18px_rgba(23,33,31,0.06)] outline-none transition focus-visible:ring-4 focus-visible:ring-mint-200 active:scale-95 dark:border-white/10 dark:bg-surface/90 dark:focus-visible:ring-mint-500/30" aria-label={layout === 'list' ? 'Показать сеткой' : 'Показать списком'}>{layout === 'list' ? <LayoutGrid size={20} /> : <List size={21} />}</button></div>
       </header>
 
       <CategoryTabs value={category} onChange={setCategory} />
-      {error && <ErrorBanner text={error} close={() => setError('')} />}
       {visibleItems.length ? <main className={layout === 'grid' ? 'places-grid grid grid-cols-2 items-stretch gap-2.5' : 'places-list space-y-2.5'}>{visibleItems.map((item) => <PlaceCard key={item.id} grid={layout === 'grid'} item={item} country={countries.find((value) => value.id === item.country)} showCountry={section === 'favorites'} onOpen={() => setPreviewId(item.id)} onToggle={() => patchItem(item, { is_completed: !item.is_completed })} onFavorite={() => patchItem(item, { is_favorite: !item.is_favorite })} onRate={(rating) => patchItem(item, { rating })} onEdit={() => setItemModal(item)} onDelete={() => deleteItem(item)} />)}</main> : <EmptyState favorites={section === 'favorites'} completed={section === 'places' && status === 'done'} onAdd={() => setItemModal({})} />}
     </>}
 
     {section !== 'settings' && countries.length > 0 && <button onClick={() => setItemModal({})} className="add-place fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-20 grid h-14 w-14 place-items-center rounded-full border border-white/20 bg-mint-600 text-white shadow-[0_10px_28px_rgba(124,58,237,0.32)] transition active:scale-95 sm:right-6" aria-label="Добавить место"><Plus size={25} /></button>}
     <BottomNav value={section} onChange={(value) => { setSection(value); setCategory('Все'); haptic() }} />
+    {error && <div className="error-notice"><ErrorBanner text={error} close={() => setError('')} /></div>}
     {pendingDelete && <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] left-3 z-40 flex max-w-[calc(100%-5.5rem)] items-center gap-3 rounded-[22px] bg-slate-900 px-4 py-3 text-sm text-white shadow-[0_10px_28px_rgba(23,33,31,0.25)] dark:border dark:border-white/10 dark:bg-surface sm:left-6"><span className="truncate">Место удалено</span><button onClick={undoDelete} className="min-h-8 font-extrabold text-mint-200">Вернуть</button></div>}
     {itemModal && <ItemSheet item={itemModal.id ? itemModal : null} countryId={countryId} username={username} onClose={() => setItemModal(null)} onSave={(saved) => { setItems((current) => upsert(current, saved)); setItemModal(null); notify() }} onError={setError} />}
     {previewItem && <PlacePreview item={previewItem} country={countries.find((value) => value.id === previewItem.country)} onClose={() => setPreviewId(null)} onEdit={() => { setPreviewId(null); setItemModal(previewItem) }} onToggle={() => patchItem(previewItem, { is_completed: !previewItem.is_completed })} onFavorite={() => patchItem(previewItem, { is_favorite: !previewItem.is_favorite })} onRate={(rating) => patchItem(previewItem, { rating })} />}
@@ -304,7 +304,18 @@ export default function App() {
 }
 
 function CategoryTabs({ value, onChange }) {
-  return <nav className="category-bar sticky top-[env(safe-area-inset-top)] z-10 -mx-3 mb-3 overflow-x-auto overscroll-x-contain bg-canvas/95 px-3 py-2.5 backdrop-blur [scrollbar-width:none] sm:-mx-6 sm:mb-4 sm:px-6 [&::-webkit-scrollbar]:hidden"><div className="flex w-max gap-2">{CATEGORIES.map((item) => <button key={item} onClick={() => { onChange(item); haptic() }} className={`min-h-11 rounded-full px-4 py-2.5 text-sm font-bold transition active:scale-[0.98] ${value === item ? 'bg-mint-600 text-white shadow-sm' : 'bg-white text-muted shadow-sm dark:bg-surface'}`}>{item}</button>)}</div></nav>
+  const barRef = useRef(null)
+  useEffect(() => {
+    const bar = barRef.current
+    const selected = bar?.querySelector('[aria-pressed="true"]')
+    if (!selected) return
+    const bounds = bar.getBoundingClientRect()
+    const item = selected.getBoundingClientRect()
+    if (item.left < bounds.left + 12 || item.right > bounds.right - 12) {
+      bar.scrollBy({ left: item.left - bounds.left - (bounds.width - item.width) / 2, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+    }
+  }, [value])
+  return <nav ref={barRef} aria-label="Категории" className="category-bar sticky top-[env(safe-area-inset-top)] z-10 -mx-3 mb-3 overflow-x-auto overscroll-x-contain bg-canvas/95 px-3 py-2.5 backdrop-blur [scrollbar-width:none] sm:-mx-6 sm:mb-4 sm:px-6 [&::-webkit-scrollbar]:hidden"><div className="flex w-max gap-2">{CATEGORIES.map((item) => <button key={item} aria-pressed={value === item} onClick={() => { onChange(item); haptic() }} className={`min-h-11 rounded-full px-4 py-2.5 text-sm font-bold transition active:scale-[0.98] ${value === item ? 'bg-mint-600 text-white shadow-sm' : 'bg-white text-muted shadow-sm dark:bg-surface'}`}>{item}</button>)}</div></nav>
 }
 
 function PlaceCard({ item, country, showCountry, grid, onOpen, onToggle, onFavorite, onRate, onEdit, onDelete }) {
@@ -312,16 +323,16 @@ function PlaceCard({ item, country, showCountry, grid, onOpen, onToggle, onFavor
   const stop = (callback) => (event) => { event.stopPropagation(); callback() }
   const actionClass = grid ? 'grid h-10 min-w-0 place-items-center rounded-full border text-ink shadow-[0_2px_10px_rgba(23,33,31,0.05)]' : 'grid h-11 w-11 shrink-0 place-items-center rounded-full border text-ink shadow-[0_2px_10px_rgba(23,33,31,0.05)]'
   return <article onClick={onOpen} className={`place-card flex cursor-pointer flex-col rounded-[28px] border bg-white/95 p-2.5 shadow-[0_5px_22px_rgba(23,33,31,0.055)] transition active:scale-[0.995] dark:bg-surface/95 dark:shadow-[0_8px_28px_rgba(0,0,0,0.22)] sm:p-3 ${item.is_completed ? 'border-mint-100 dark:border-mint-500/35' : 'border-white dark:border-white/10'}`}>
-    <div className={grid ? 'block' : 'flex min-h-24 items-stretch gap-3'}>
+    <div role="button" tabIndex={0} aria-label={`Открыть ${item.title}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen() } }} className={grid ? 'place-open block' : 'place-open flex min-h-24 items-stretch gap-3'}>
       <div className={`place-photo relative shrink-0 overflow-hidden bg-mint-50 dark:bg-mint-500/15 ${grid ? 'h-28 w-full rounded-[22px]' : 'h-24 w-24 rounded-[22px]'}`}>{item.photo_url ? <img src={item.photo_url} alt="" className="h-full w-full object-cover" loading="lazy" /> : <div className="grid h-full w-full place-items-center text-mint-600 dark:text-mint-200"><MapPin size={26} /></div>}<span className="photo-label absolute inset-x-1.5 bottom-1.5 truncate rounded-full bg-slate-900/65 px-2 py-1 text-center text-[10px] font-extrabold text-white backdrop-blur">{item.category}</span></div>
       <div className={`place-copy flex min-w-0 flex-1 flex-col ${grid ? 'min-h-[78px] px-1 pt-2.5' : 'justify-center py-1'}`}><h2 className={`line-clamp-2 text-[15px] font-extrabold leading-snug sm:text-base ${item.is_completed ? 'line-through text-muted' : 'text-ink'}`}>{item.title}</h2>{item.description && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted sm:text-[13px]">{item.description}</p>}{showCountry && <span className="mt-2 w-fit max-w-full truncate rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-muted dark:bg-white/5">{country?.emoji || '✈️'} {country?.name || ''}</span>}</div>
     </div>
-    <footer className={`${grid ? 'mt-auto' : 'mt-2.5'} border-t border-slate-100 pt-2.5 dark:border-white/10`}>{item.is_completed && <StarRating value={item.rating} onChange={onRate} compact />}<div className={`${grid ? 'grid grid-cols-3 gap-1.5' : 'flex items-center gap-1.5'} ${item.is_completed ? 'mt-1.5' : ''}`}>{mapUrl ? <a href={mapUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className={`${grid ? 'col-span-2 h-10' : 'h-11 flex-1'} flex min-w-0 items-center justify-center gap-1.5 rounded-full border border-slate-100 bg-white px-2 text-xs font-extrabold text-ink shadow-[0_2px_10px_rgba(23,33,31,0.05)] dark:border-white/10 dark:bg-white/5`}><MapPin size={17} /><span>Карта</span></a> : <button onClick={stop(onOpen)} className={`${grid ? 'col-span-2 h-10' : 'h-11 flex-1'} flex min-w-0 items-center justify-center gap-1.5 border border-slate-100 bg-white px-2 text-xs font-extrabold text-ink shadow-[0_2px_10px_rgba(23,33,31,0.05)] dark:border-white/10 dark:bg-white/5`}><MapPin size={17} /><span>О месте</span></button>}<button onClick={stop(onToggle)} className={`${actionClass} ${item.is_completed ? 'border-mint-500 bg-mint-500 text-white' : 'border-slate-100 bg-white dark:border-white/10 dark:bg-white/5'}`} aria-label={item.is_completed ? 'Вернуть в активные' : 'Отметить выполненным'}><Check size={grid ? 18 : 19} strokeWidth={2.5} /></button><button onClick={stop(onEdit)} className={`${actionClass} border-slate-100 bg-white dark:border-white/10 dark:bg-white/5`} aria-label="Редактировать"><Pencil size={grid ? 17 : 18} /></button><button onClick={stop(onFavorite)} className={`${actionClass} border-slate-100 bg-white dark:border-white/10 dark:bg-white/5`} aria-label="Избранное"><Heart size={grid ? 18 : 20} className={item.is_favorite ? 'fill-rose-500 text-rose-500' : 'text-slate-500 dark:text-slate-400'} /></button><button onClick={stop(onDelete)} className={`${actionClass} border-slate-100 bg-white text-slate-600 active:bg-red-50 active:text-red-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300`} aria-label="Удалить"><Trash2 size={grid ? 17 : 18} /></button></div></footer>
+    <footer className={`${grid ? 'mt-auto' : 'mt-2.5'} border-t border-slate-100 pt-2.5 dark:border-white/10`}>{item.is_completed && <StarRating value={item.rating} onChange={onRate} compact />}<div className={`${grid ? 'grid grid-cols-3 gap-1.5' : 'flex items-center gap-1.5'} ${item.is_completed ? 'mt-1.5' : ''}`}>{mapUrl ? <a href={mapUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className={`${grid ? 'col-span-2 h-10' : 'h-11 flex-1'} flex min-w-0 items-center justify-center gap-1.5 rounded-full border border-slate-100 bg-white px-2 text-xs font-extrabold text-ink shadow-[0_2px_10px_rgba(23,33,31,0.05)] dark:border-white/10 dark:bg-white/5`}><MapPin size={17} /><span>Карта</span></a> : <button onClick={stop(onOpen)} className={`${grid ? 'col-span-2 h-10' : 'h-11 flex-1'} flex min-w-0 items-center justify-center gap-1.5 border border-slate-100 bg-white px-2 text-xs font-extrabold text-ink shadow-[0_2px_10px_rgba(23,33,31,0.05)] dark:border-white/10 dark:bg-white/5`}><MapPin size={17} /><span>О месте</span></button>}<button aria-pressed={Boolean(item.is_completed)} onClick={stop(onToggle)} className={`${actionClass} ${item.is_completed ? 'border-mint-500 bg-mint-500 text-white' : 'border-slate-100 bg-white dark:border-white/10 dark:bg-white/5'}`} aria-label={item.is_completed ? 'Вернуть в активные' : 'Отметить выполненным'}><Check size={grid ? 18 : 19} strokeWidth={2.5} /></button><button onClick={stop(onEdit)} className={`${actionClass} border-slate-100 bg-white dark:border-white/10 dark:bg-white/5`} aria-label="Редактировать"><Pencil size={grid ? 17 : 18} /></button><button aria-pressed={Boolean(item.is_favorite)} onClick={stop(onFavorite)} className={`${actionClass} border-slate-100 bg-white dark:border-white/10 dark:bg-white/5`} aria-label="Избранное"><Heart size={grid ? 18 : 20} className={item.is_favorite ? 'fill-rose-500 text-rose-500' : 'text-slate-500 dark:text-slate-400'} /></button><button onClick={stop(onDelete)} className={`${actionClass} border-slate-100 bg-white text-slate-600 active:bg-red-50 active:text-red-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300`} aria-label="Удалить"><Trash2 size={grid ? 17 : 18} /></button></div></footer>
   </article>
 }
 
 function StarRating({ value = 0, onChange, compact = false }) {
-  return <div className={`flex items-center ${compact ? 'justify-center gap-0.5' : 'gap-1'}`} role="group" aria-label="Оценка места">{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" onClick={(event) => { event.stopPropagation(); onChange(value === star ? null : star); haptic() }} className={`grid shrink-0 place-items-center rounded-full active:scale-90 ${compact ? 'h-7 w-7' : 'h-10 w-10'}`} aria-label={`${star} из 5`}><Star size={compact ? 18 : 26} strokeWidth={2} className={star <= (value || 0) ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'} /></button>)}</div>
+  return <div className={`flex items-center ${compact ? 'justify-center gap-0.5' : 'gap-1'}`} role="group" aria-label="Оценка места">{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" onClick={(event) => { event.stopPropagation(); onChange(value === star ? null : star); haptic() }} className={`grid shrink-0 place-items-center rounded-full active:scale-90 ${compact ? 'h-7 w-7' : 'h-10 w-10'}`} aria-pressed={value === star} aria-label={`${star} из 5`}><Star size={compact ? 18 : 26} strokeWidth={2} className={star <= (value || 0) ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'} /></button>)}</div>
 }
 
 function PlacePreview({ item, country, onClose, onEdit, onToggle, onFavorite, onRate }) {
@@ -341,7 +352,7 @@ function PlacePreview({ item, country, onClose, onEdit, onToggle, onFavorite, on
 
 function BottomNav({ value, onChange }) {
   const links = [{ id: 'places', label: 'Места', icon: <Map size={21} /> }, { id: 'favorites', label: 'Избранное', icon: <Heart size={21} /> }, { id: 'settings', label: 'Настройки', icon: <Settings size={21} /> }]
-  return <nav className="glass-dock fixed inset-x-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-[40rem] rounded-[28px] border border-white/80 bg-white/[0.88] px-2 shadow-[0_10px_35px_rgba(23,33,31,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-surface/[0.9] dark:shadow-[0_12px_38px_rgba(0,0,0,0.35)]"><div className="mx-auto grid h-[66px] grid-cols-3 gap-1">{links.map(({ id, label, icon }) => <button key={id} onClick={() => onChange(id)} className={`my-1.5 flex min-w-0 flex-col items-center justify-center gap-1 rounded-[21px] text-[11px] font-bold transition active:scale-[0.97] ${value === id ? 'bg-mint-50 text-mint-700 shadow-inner dark:bg-mint-500/15 dark:text-mint-200' : 'text-slate-400 dark:text-slate-500'}`}>{icon}{label}</button>)}</div></nav>
+  return <nav className="glass-dock fixed inset-x-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-[40rem] rounded-[28px] border border-white/80 bg-white/[0.88] px-2 shadow-[0_10px_35px_rgba(23,33,31,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-surface/[0.9] dark:shadow-[0_12px_38px_rgba(0,0,0,0.35)]"><div className="mx-auto grid h-[66px] grid-cols-3 gap-1">{links.map(({ id, label, icon }) => <button key={id} aria-current={value === id ? 'page' : undefined} onClick={() => onChange(id)} className={`my-1.5 flex min-w-0 flex-col items-center justify-center gap-1 rounded-[21px] text-[11px] font-bold transition active:scale-[0.97] ${value === id ? 'bg-mint-50 text-mint-700 shadow-inner dark:bg-mint-500/15 dark:text-mint-200' : 'text-slate-400 dark:text-slate-500'}`}>{icon}{label}</button>)}</div></nav>
 }
 
 function SettingsScreen({ countries, username, darkMode, onThemeChange, onAdd, onEdit, onDelete }) {
@@ -421,14 +432,14 @@ function ItemSheet({ item, countryId, username, onClose, onSave, onError }) {
   return <Sheet title={item ? 'Редактировать место' : 'Новое место'} onClose={close} shortOnMobile footer={<button type="submit" form="place-form" disabled={saving} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[20px] bg-ink px-4 font-extrabold text-white shadow-[0_8px_22px_rgba(23,33,31,0.2)] disabled:opacity-60 dark:bg-mint-600">{saving ? <LoaderCircle className="animate-spin" size={20} /> : <Check size={20} />} Сохранить</button>}>
     <form id="place-form" onSubmit={submit} className="space-y-4 pb-1 sm:space-y-5">
       <section className="import-panel space-y-3 rounded-[26px] border border-mint-100/80 bg-mint-50/[0.65] p-3 dark:border-mint-500/25 dark:bg-mint-500/10"><div><h2 className="text-sm font-extrabold text-ink">Быстрое заполнение</h2><p className="mt-0.5 text-xs leading-relaxed text-muted">Вставьте ссылку — название, описание и фото загрузятся сами.</p></div>
-        <label className="block"><span className="label">Google Maps</span><span className="relative block"><MapPin size={17} className="field-icon" /><input className="field pl-10" value={form.maps_url} onChange={(event) => { setForm({ ...form, maps_url: event.target.value }); setPreviewMessage('') }} onPaste={(event) => importPastedLink(event, 'maps_url')} onBlur={(event) => void importLink(event.currentTarget.value, 'maps_url')} placeholder="Ссылка на место" inputMode="url" /></span></label>
-        <label className="block"><span className="label">Сайт <span className="font-medium text-slate-400">· необязательно</span></span><span className="relative block"><Link2 size={17} className="field-icon" /><input className="field pl-10" value={form.external_url} onChange={(event) => { setForm({ ...form, external_url: event.target.value }); setPreviewMessage('') }} onPaste={(event) => importPastedLink(event, 'external_url')} onBlur={(event) => void importLink(event.currentTarget.value, 'external_url')} placeholder="Ссылка на сайт" inputMode="url" /></span></label>
+        <label className="block"><span className="label">Google Maps</span><span className="relative block"><MapPin size={17} className="field-icon" /><input className="field pl-10" value={form.maps_url} onChange={(event) => { setForm({ ...form, maps_url: event.target.value }); setPreviewMessage('') }} onPaste={(event) => importPastedLink(event, 'maps_url')} onBlur={(event) => void importLink(event.currentTarget.value, 'maps_url')} placeholder="Ссылка на место" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></span></label>
+        <label className="block"><span className="label">Сайт <span className="font-medium text-slate-400">· необязательно</span></span><span className="relative block"><Link2 size={17} className="field-icon" /><input className="field pl-10" value={form.external_url} onChange={(event) => { setForm({ ...form, external_url: event.target.value }); setPreviewMessage('') }} onPaste={(event) => importPastedLink(event, 'external_url')} onBlur={(event) => void importLink(event.currentTarget.value, 'external_url')} placeholder="Ссылка на сайт" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></span></label>
         {(previewing || previewMessage) && <div className={`flex items-center gap-2 text-xs font-bold ${previewMessage.startsWith('Не') ? 'text-amber-600' : 'text-mint-700'}`}>{previewing ? <><LoaderCircle size={15} className="animate-spin" /> Загружаю данные…</> : <><Check size={15} /> {previewMessage}</>}</div>}
       </section>
       <label className="block"><span className="label">Название</span><input className="field" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Куда хотите сходить?" /></label>
-      <div><span className="label">Категория</span><div className="grid grid-cols-2 gap-2">{CATEGORIES.slice(1).map((value) => <button type="button" key={value} onClick={() => { setForm({ ...form, category: value }); haptic() }} className={`min-h-12 rounded-[18px] px-3 py-3 text-sm font-bold transition active:scale-[0.98] ${form.category === value ? 'bg-mint-600 text-white shadow-sm' : 'bg-white/95 text-muted shadow-[0_3px_14px_rgba(23,33,31,0.05)] dark:bg-white/5'}`}>{value}</button>)}</div></div>
+      <div><span className="label">Категория</span><div className="grid grid-cols-2 gap-2">{CATEGORIES.slice(1).map((value) => <button type="button" key={value} aria-pressed={form.category === value} onClick={() => { setForm({ ...form, category: value }); haptic() }} className={`min-h-12 rounded-[18px] px-3 py-3 text-sm font-bold transition active:scale-[0.98] ${form.category === value ? 'bg-mint-600 text-white shadow-sm' : 'bg-white/95 text-muted shadow-[0_3px_14px_rgba(23,33,31,0.05)] dark:bg-white/5'}`}>{value}</button>)}</div></div>
       <label className="block"><span className="label">Описание</span><textarea className="field min-h-20 resize-none" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Коротко о месте" /></label>
-      <div><span className="label">Фото</span>{photoUrl ? <div className="relative overflow-hidden rounded-[24px]"><img src={photoUrl} alt="Предпросмотр" className="h-40 w-full object-cover" /><button type="button" onClick={() => { setPhotoUrl(''); setPhotoFile(null); setPhotoPath(null) }} className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-red-500 shadow-sm dark:bg-surface/90"><Trash2 size={17} /></button></div> : <label className="flex h-28 cursor-pointer items-center justify-center gap-2 rounded-[24px] border border-dashed border-slate-300 bg-white/90 text-sm font-bold text-muted dark:border-white/15 dark:bg-white/5">{previewing ? <><LoaderCircle size={19} className="animate-spin" /> Загружаю данные…</> : <><ImagePlus size={20} /> Добавить фото</>}<input className="sr-only" type="file" accept="image/*" onChange={choosePhoto} /></label>}{!photoUrl && !previewing && (form.maps_url || form.external_url) && <button type="button" onClick={() => { importedUrl.current = ''; void importLink(form.external_url || form.maps_url, form.external_url ? 'external_url' : 'maps_url') }} className="mt-2 text-xs font-bold text-mint-700 dark:text-mint-200">Повторить загрузку по ссылке</button>}</div>
+      <div><span className="label">Фото</span>{photoUrl ? <div className="relative overflow-hidden rounded-[24px]"><img src={photoUrl} alt="Предпросмотр" className="h-40 w-full object-cover" /><button type="button" onClick={() => { setPhotoUrl(''); setPhotoFile(null); setPhotoPath(null) }} aria-label="Удалить фото" className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-red-500 shadow-sm dark:bg-surface/90"><Trash2 size={17} /></button></div> : <label className="flex h-28 cursor-pointer items-center justify-center gap-2 rounded-[24px] border border-dashed border-slate-300 bg-white/90 text-sm font-bold text-muted dark:border-white/15 dark:bg-white/5">{previewing ? <><LoaderCircle size={19} className="animate-spin" /> Загружаю данные…</> : <><ImagePlus size={20} /> Добавить фото</>}<input className="sr-only" type="file" accept="image/*" onChange={choosePhoto} /></label>}{!photoUrl && !previewing && (form.maps_url || form.external_url) && <button type="button" onClick={() => { importedUrl.current = ''; void importLink(form.external_url || form.maps_url, form.external_url ? 'external_url' : 'maps_url') }} className="mt-2 text-xs font-bold text-mint-700 dark:text-mint-200">Повторить загрузку по ссылке</button>}</div>
     </form>
   </Sheet>
 }
@@ -452,12 +463,66 @@ function CountrySheet({ country, order, onClose, onSave, onError }) {
 }
 
 function Sheet({ title, onClose, children, footer, shortOnMobile = false }) {
+  const titleId = useId()
+  const overlayRef = useRef(null)
+  const panelRef = useRef(null)
+  const closeRef = useRef(onClose)
+  useEffect(() => { closeRef.current = onClose }, [onClose])
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
+    const previousFocus = document.activeElement
+    const panel = panelRef.current
+    const viewport = window.visualViewport
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = previousOverflow }
+
+    const syncViewport = () => {
+      if (!viewport || !overlayRef.current) return
+      overlayRef.current.style.setProperty('--sheet-height', `${viewport.height}px`)
+      overlayRef.current.style.setProperty('--sheet-top', `${viewport.offsetTop}px`)
+    }
+    const focusable = () => [...panel.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]')]
+      .filter((element) => element.getClientRects().length)
+    const keydown = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); return }
+      if (event.key !== 'Tab') return
+      const controls = focusable()
+      const first = controls[0]
+      const last = controls.at(-1)
+      if (!first) { event.preventDefault(); panel.focus(); return }
+      if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+        event.preventDefault(); last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+        event.preventDefault(); first.focus()
+      }
+    }
+    syncViewport()
+    const frame = requestAnimationFrame(() => {
+      if (!panel.contains(document.activeElement)) (focusable()[0] || panel).focus({ preventScroll: true })
+    })
+    viewport?.addEventListener('resize', syncViewport)
+    viewport?.addEventListener('scroll', syncViewport)
+    document.addEventListener('keydown', keydown)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.body.style.overflow = previousOverflow
+      viewport?.removeEventListener('resize', syncViewport)
+      viewport?.removeEventListener('scroll', syncViewport)
+      document.removeEventListener('keydown', keydown)
+      if (previousFocus?.isConnected) previousFocus.focus?.({ preventScroll: true })
+    }
   }, [])
-  return <div className="sheet-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-900/30 backdrop-blur-md dark:bg-black/55 sm:items-center sm:p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className={`glass-sheet flex w-full max-w-lg flex-col overflow-hidden rounded-t-[34px] border border-white/70 bg-canvas shadow-[0_24px_70px_rgba(23,33,31,0.22)] dark:border-white/10 dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] sm:max-h-[94dvh] sm:rounded-[34px] ${shortOnMobile ? 'max-h-[calc(100dvh-env(safe-area-inset-top)-48px)]' : 'max-h-[calc(100dvh-env(safe-area-inset-top)-8px)]'}`}><div className="mx-auto mt-2.5 h-1.5 w-11 shrink-0 rounded-full bg-slate-300/90 dark:bg-white/20 sm:hidden" /><header className="flex shrink-0 items-center justify-between px-4 py-3 sm:px-5 sm:py-4"><h1 className="text-lg font-extrabold sm:text-xl">{title}</h1><button onClick={onClose} className="icon-button bg-white/70 shadow-sm dark:bg-white/10" aria-label="Закрыть"><X size={21} /></button></header><div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5">{children}</div>{footer && <footer className="shrink-0 border-t border-white/80 bg-white/[0.88] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl dark:border-white/10 dark:bg-surface/[0.9] sm:px-5 sm:pb-4">{footer}</footer>}</section></div>
+  return <div ref={overlayRef} className="sheet-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-900/30 backdrop-blur-md dark:bg-black/55 sm:items-center sm:p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} data-short={shortOnMobile} className="glass-sheet flex w-full max-w-lg flex-col overflow-hidden rounded-t-[34px] border border-white/70 bg-canvas shadow-[0_24px_70px_rgba(23,33,31,0.22)] dark:border-white/10 sm:rounded-[34px]">
+      <div className="sheet-handle mx-auto mt-2.5 h-1.5 w-11 shrink-0 rounded-full bg-slate-300/90 dark:bg-white/20 sm:hidden" />
+      <header className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4">
+        <h1 id={titleId} className="text-lg font-extrabold sm:text-xl">{title}</h1>
+        <button onClick={onClose} className="icon-button shrink-0 bg-white/70 shadow-sm dark:bg-white/10" aria-label="Закрыть"><X size={21} /></button>
+      </header>
+      <div className="sheet-content min-h-0 flex-1 overscroll-contain overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5">{children}</div>
+      {footer && <footer className="shrink-0 border-t border-white/80 bg-white/[0.88] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl dark:border-white/10 dark:bg-surface/[0.9] sm:px-5 sm:pb-4">{footer}</footer>}
+    </section>
+  </div>
 }
 
 function EmptyState({ favorites, completed, onAdd }) {
@@ -467,7 +532,7 @@ function EmptyState({ favorites, completed, onAdd }) {
 }
 
 function ErrorBanner({ text, close }) {
-  return <div className="mb-4 flex items-start justify-between gap-3 rounded-[22px] bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm dark:bg-red-500/15 dark:text-red-300"><span>{text}</span><button onClick={close} className="rounded-full p-1"><X size={17} /></button></div>
+  return <div role="alert" className="mb-4 flex items-start justify-between gap-3 rounded-[22px] bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm dark:bg-red-500/15 dark:text-red-300"><span>{text}</span><button onClick={close} aria-label="Закрыть сообщение" className="shrink-0 rounded-full p-1"><X size={17} /></button></div>
 }
 
 function Loading() { return <div className="grid min-h-dvh place-items-center text-mint-600"><LoaderCircle className="animate-spin" /></div> }
