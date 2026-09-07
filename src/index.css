@@ -47,9 +47,13 @@ html.dark body {
 }
 
 button, input, textarea, select { font: inherit; }
-button {
+#root button {
   border-radius: 9999px;
   touch-action: manipulation;
+}
+#root a[href],
+#root label:has(> input[type="file"]) {
+  border-radius: 9999px;
 }
 input, textarea, select { font-size: 16px; }
 
@@ -322,6 +326,13 @@ select option { color: rgb(var(--color-ink)); background: rgb(var(--color-surfac
 .error-notice button { width: 44px; height: 44px; display: grid; place-items: center; }
 html.dark .error-notice > div { background: #3b242f; border-color: #7b4158; }
 .places-grid .place-card > footer > div:not([role="group"]) { gap: 6px; }
+.places-grid .place-card > footer > div:not([role="group"]) > button[aria-label] {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  justify-self: center;
+}
 
 @media (min-width: 640px) {
   .app-shell .page-header { flex-wrap: wrap; }
